@@ -8,7 +8,7 @@ from tkinter import messagebox
 #初始化
 
 st.set_page_config(page_title="Mingcrap Agent", page_icon="🦀")
-st.title("🦀 Mingcrap:MINGCRAP_BETA")
+st.title("🦀 MINGCRAP")
 
 #API
 
@@ -25,15 +25,15 @@ if not api_key:
 
 client = OpenAI(api_key=api_key, base_url=base_url)
 
-#安全拦截逻辑 (图形化)
+#人工确认
 
 def manual_confirm(command):
-    """Tkinter底层确认框以保证安全"""
+    """Tkinter底层确认框"""
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)  # 确保弹窗在最前面
 
-    # 风险识别逻辑(简单)
+    # 风险识别
     danger_keywords = ["rm", "del", "format", "shutdown", ">", "mv"]
     is_risky = any(kw in command.lower() for kw in danger_keywords)
 
@@ -46,20 +46,19 @@ def manual_confirm(command):
 
 
 
-#工具箱(执行)
-
+#执行
 def run_shell_command(command):
     if manual_confirm(command):
         try:
-            # 增加超时处理
+            # 超时处理
             result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT, timeout=15)
-            # 优先尝试gbk
+            # gbk
             try:
                 return f"【执行成功】:\n{result.decode('gbk')}"
             except:
                 return f"【执行成功】:\n{result.decode('utf-8')}"
         except subprocess.CalledProcessError as e:
-            # 获取报错详情
+            # 报错详情
             err_msg = e.output.decode('gbk', errors='ignore')
             return f"【执行失败】: {err_msg}"
         except Exception as e:
@@ -70,7 +69,7 @@ def run_shell_command(command):
 
 
 
-#Streamlit UI 与 决策循环(beta)
+#Streamlit和决策循环
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
@@ -78,12 +77,12 @@ if "messages" not in st.session_state:
          "content": "你是一个名为 Mingcrap 的 AI。你可以通过回复 'RUN_CMD: [命令]' 来操作电脑。任务完成后回复 'FINISH: [总结]'。"}
     ]
 
-# 显示历史对话(beta)
-for msg in st.session_state.messages[1:]:  # 跳过系统提示词
+# 显示历史对话
+for msg in st.session_state.messages[1:]:  # 跳过提示词
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# 用户输入
+# 输入
 if prompt := st.chat_input("命令 Mingcrap 做点什么？"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -91,7 +90,7 @@ if prompt := st.chat_input("命令 Mingcrap 做点什么？"):
 
     # 思考循环
     with st.chat_message("assistant"):
-        # 创建一个状态容器
+        # 状态容器
         with st.status("Mingcrap 正在思考...", expanded=True) as status:
             for _ in range(3):#在这里更改循环次数，3次节省钱包这一块
                 response = client.chat.completions.create(
@@ -123,4 +122,3 @@ if prompt := st.chat_input("命令 Mingcrap 做点什么？"):
                     break
 
 st.success("Mingcrap 运行中 - 准备就绪")
-
