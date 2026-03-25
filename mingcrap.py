@@ -1,9 +1,9 @@
-import os
 import subprocess
-import streamlit as st
-from openai import OpenAI
 import tkinter as tk
 from tkinter import messagebox
+
+import streamlit as st
+from openai import OpenAI
 
 #初始化
 
@@ -73,52 +73,78 @@ def run_shell_command(command):
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "system",
-         "content": "你是一个名为 Mingcrap 的 AI。你可以通过回复 'RUN_CMD: [命令]' 来操作电脑。任务完成后回复 'FINISH: [总结]'。"}
-    ]
+        {
+        "role": "system",
+        "content": """你是一个名为 Mingcrap 的高级 AI 终端助手。你可以通过操作本地电脑(windows)来完成用户指令。
+
+### 核心规则：
+1. **思考与行动循环**：
+   - 收到任务后，先进行分析（Thought），确定需要执行的操作。
+   - 如果需要操作电脑，必须输出格式：`RUN_CMD: [具体的 Shell 命令]`。
+   - 每次只执行**一个**命令，并等待系统反馈结果。
+   - 根据系统返回的“观测结果”决定下一步：是继续尝试新命令，还是已经完成。
+
+2. **自我修正**：
+   - 如果命令报错，请分析报错原因（如路径空格、编码错误、权限不足），并在下一轮尝试不同的解决方案。
+   - 不要重复尝试已经失败且未做修改的命令。
+
+3. **任务终结**：
+   - 当任务彻底完成时，必须以 `FINISH: [总结性描述]` 开头。
+
+4. **安全警示**：
+   - 在执行涉及删除、关机或大规模修改的命令前，请在 Thought 中提醒用户。
+
+### 输出示例：
+用户：帮我新建一个文件夹叫 test。
+AI：我需要使用 mkdir 命令创建一个新文件夹。
+RUN_CMD: mkdir test
+"""
+    }
+]
 
 # 显示历史对话
-for msg in st.session_state.messages[1:]:  # 跳过提示词
+for msg in st.session_state.messages[1:]: 
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # 输入
-if prompt := st.chat_input("命令 Mingcrap 做点什么？"):
+if prompt := st.chat_input("命令 Mingcrap 做点什么？", key="main_chat_input"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 思考循环
     with st.chat_message("assistant"):
-        # 状态容器
-        with st.status("Mingcrap 正在思考...", expanded=True) as status:
-            for _ in range(3):#在这里更改循环次数，3次节省钱包这一块
+        thought_container = st.container()
+        MAX_STEPS = 5
+        for i in range(MAX_STEPS):
+            with st.status(f"Mingcrap 正在进行第 {i + 1} 步决策...", expanded=True) as status:
                 response = client.chat.completions.create(
                     model=model_name,
                     messages=st.session_state.messages,
-                    temperature=0.1
+                    temperature=0.1,
+                    stream=True
                 )
-                ai_content = response.choices[0].message.content
+                full_response = ""
+                resp_placeholder = st.empty()
+                for chunk in response:
+                    content = chunk.choices[0].delta.content or ""
+                    full_response += content
+                    resp_placeholder.markdown(full_response + "▌")
+                resp_placeholder.markdown(full_response)
 
-                if "RUN_CMD:" in ai_content:
-                    cmd = ai_content.split("RUN_CMD:")[1].strip()
-                    st.write(f"👉 尝试执行命令: `{cmd}`")
-
-                    # 执行工具
+                if "RUN_CMD:" in full_response:
+                    cmd = full_response.split("RUN_CMD:")[1].strip().split('\n')[0]
+                    st.write(f"🔍 识别到指令: `{cmd}`")
                     obs = run_shell_command(cmd)
-
-                    # 实时展示执行结果
                     st.code(obs, language="text")
-
-                    # 更新上下文
-                    st.session_state.messages.append({"role": "assistant", "content": ai_content})
-                    st.session_state.messages.append({"role": "user", "content": f"系统观测结果: {obs}"})
-                    continue
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    st.session_state.messages.append({"role": "user", "content": f"SYSTEM_OBSERVATION: {obs}"})
+                    status.update(label=f"✅ 步骤 {i + 1} 已完成", state="complete")
                 else:
-                    # 最终完成
-                    status.update(label="任务完成！", state="complete", expanded=False)
-                    st.markdown(ai_content)
-                    st.session_state.messages.append({"role": "assistant", "content": ai_content})
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    status.update(label="任务达成", state="complete", expanded=False)
                     break
+        else:
+            st.error("已达到最大限制，任务可能未完全完成。")
 
-st.success("Mingcrap 运行中 - 准备就绪")
+st.caption("Mingcrap 处于就绪状态")
