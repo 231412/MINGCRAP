@@ -1,0 +1,15 @@
+🦀 Mingcrap 本地部署指南
+
+第一步：安装依赖
+
+确保你的电脑安装了 Python 在项目文件夹下打开终端，运行：
+
+pip install -r requirements.txt 
+
+第二步：一键启动
+
+双击运行目录下的 run_mingcrap.bat 即可启动程序。
+
+文件结构建议
+mingcrap.py(主程序)
+run_mingcrap.bat (启动脚本)
