@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.idea/
+dist/
+build/
+*.spec.bak
+streamlit.out.log
+streamlit.err.log
+secrets.json
+settings.json
+expertise.json
+history.json
+audit.jsonl
+sessions/
+*.tmp
